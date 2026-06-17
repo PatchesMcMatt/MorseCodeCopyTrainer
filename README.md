@@ -1,4 +1,4 @@
-Morse Code Headcopy Trainer
+Simple Morse code headcopy trainer using JavaScript. Download the HTML file, run it locally in your browser.
 
 SCREENSHOT
 
