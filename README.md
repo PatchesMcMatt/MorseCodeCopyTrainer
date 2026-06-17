@@ -1,6 +1,6 @@
-Simple Morse code headcopy trainer using JavaScript. Download the HTML file, run it locally in your browser.
+Simple Morse Code Copy Trainer using JavaScript. Download the HTML file, run it locally in your browser.
 
-SCREENSHOT
+![Morse Code Copy Trainer](MorseHeadCopy.png)
 
 Revision History
 17 June 2026 - 0.7 beta - initial commit
