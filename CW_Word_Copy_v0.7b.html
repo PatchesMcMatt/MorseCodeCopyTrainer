@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Morse Code Trainer</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    max-width: 1100px;
+    margin: 40px auto;
+    line-height: 1.6;
+    display: flex;
+    gap: 40px;
+  }
+
+  #leftCol {
+    width: 60%;
+  }
+
+  #rightCol {
+    width: 40%;
+    border-left: 2px solid #ccc;
+    padding-left: 25px;
+  }
+
+  select {
+    border: none;
+    background: transparent;
+    font-size: 1.1em;
+    padding: 2px 18px 2px 4px;
+    outline: none;
+    appearance: none;
+    background-image: url("data:image/svg+xml;utf8,<svg fill='black' height='12' width='12' xmlns='http://www.w3.org/2000/svg'><polygon points='0,0 12,0 6,8'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right center;
+    background-size: 12px;
+  }
+
+  #history {
+    margin-top: 25px;
+    padding-top: 10px;
+    border-top: 2px solid #ccc;
+    font-family: monospace;
+    white-space: pre-wrap;
+  }
+
+  .wrong { color: red; font-weight: bold; }
+
+  /* SUMMARY OVERLAY */
+  #summaryOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.55);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+  }
+
+  #summaryBox {
+    background: white;
+    padding: 25px;
+    width: 600px;
+    max-height: 80%;
+    overflow-y: auto;
+    border-radius: 10px;
+    box-shadow: 0 0 20px black;
+  }
+
+  #summaryBox h2 {
+    margin-top: 0;
+  }
+
+  .summaryButtons {
+    margin-top: 20px;
+    text-align: center;
+  }
+
+  .summaryButtons button {
+    padding: 8px 16px;
+    font-size: 1em;
+    cursor: pointer;
+  }
+
+</style>
+</head>
+<body>
+
+<!-- SUMMARY OVERLAY -->
+<div id="summaryOverlay">
+  <div id="summaryBox">
+    <h1 style="text-align:center; margin-top:0;">Morse Practice Summary</h1>
+    <div id="summaryContent"></div>
+
+    <div class="summaryButtons">
+      <button onclick="closeSummary()">Close</button>
+    </div>
+  </div>
+</div>
+
+<div id="leftCol">
+
+<h2>Morse Code Word Trainer</h2>
+
+<label><strong>Load word list (.txt):</strong></label>
+<input type="file" id="wordFile" accept=".txt" onchange="loadWordList()">
+<div id="wordLoadSummary" style="margin-top:5px; font-style:italic;"></div>
+
+<div style="display:flex; gap:40px; align-items:center; margin-top:20px;">
+  <div style="display:flex; align-items:center; gap:8px;">
+    <label><strong>Character WPM:</strong></label>
+    <select id="charWpmSelect">
+      <option>5</option><option>7</option><option>10</option>
+      <option>12</option><option>15</option><option>18</option>
+      <option>20</option><option selected>25</option><option>30</option>
+      <option>35</option><option>40</option>
+    </select>
+  </div>
+
+  <div style="display:flex; align-items:center; gap:8px;">
+    <label><strong>Farnsworth WPM:</strong></label>
+    <select id="farnWpmSelect">
+      <option>5</option><option>7</option><option>10</option>
+      <option>12</option><option>15</option><option selected>18</option>
+      <option>20</option><option>25</option><option>30</option>
+      <option>35</option><option>40</option>
+    </select>
+  </div>
+
+  <div style="display:flex; align-items:center; gap:8px;">
+    <label><strong>Effective WPM:</strong></label>
+    <span id="effectiveWpmLabel">18.0</span>
+  </div>
+</div>
+
+<div style="display:flex; align-items:center; gap:8px; margin-top:20px;">
+  <label><strong>Side Tone (Hz):</strong></label>
+  <select id="toneSelect">
+    <option>300</option><option>350</option><option>400</option>
+    <option>450</option><option>500</option><option>550</option>
+    <option selected>600</option>
+    <option>650</option><option>700</option><option>750</option><option>800</option>
+  </select>
+</div>
+
+<div style="margin-top:20px;">
+  <button onclick="ensureAudio(); startRound();">Start</button>
+</div>
+
+<input id="answer" placeholder="Type the word you heard and press Enter" style="width:100%; margin-top:10px;">
+
+<div style="margin-top:20px;">
+  <strong>Average Response Time (last 25 correct):</strong>
+  <span id="avgResponseTime">0.00s</span>
+</div>
+
+<div style="margin-top:5px;">
+  <strong>Average Plays (last 25 correct):</strong>
+  <span id="avgPlayCount">0.00</span>
+</div>
+
+<h3 style="margin-top:25px;">History</h3>
+<div id="history"></div>
+
+</div>
+
+<div id="rightCol">
+
+<h2>How to Use This Trainer</h2>
+
+<h3>Word List</h3>
+<p>- Load a plain text file containing one or more words per line.</p>
+
+<h3>Speed Settings</h3>
+<p>
+  - Character WPM controls dot/dash speed.<br>
+  - Farnsworth WPM controls spacing speed.<br>
+  - Effective WPM shows true overall speed.
+</p>
+
+<h3>Side Tone</h3>
+<p>- Choose the audio frequency used for Morse playback.</p>
+
+<h3>Practice</h3>
+<p>
+  - Click Start to begin practice session. Head copy the word sent and type it into the text field. Press Enter to submit. If you need to hear the word again, press Enter before typing any part of the word.<br>
+  - A performance summary will be displayed once all words in the imported word list have been copied.
+</p>
+
+<h3>Performance Tracking</h3>
+<p>
+  - Your average response time for the last 25 correct words is displayed.<br>
+  - The average number of times you need to hear a word before you submit your copy is displayed as "Average Plays".
+</p>
+
+<h3>History</h3>
+<p>- Incorrect characters appear in red.</p>
+
+</div>
+
+<script>
+// =========================
+// STATE
+// =========================
+
+const MORSE = {
+  A: ".-", B: "-...", C: "-.-.", D: "-..", E: ".", F: "..-.",
+  G: "--.", H: "....", I: "..", J: ".---", K: "-.-", L: ".-..",
+  M: "--", N: "-.", O: "---", P: ".--.", Q: "--.-", R: ".-.",
+  S: "...", T: "-", U: "..-", V: "...-", W: ".--", X: "-..-",
+  Y: "-.--", Z: "--..",
+  0: "-----", 1: ".----", 2: "..---", 3: "...--", 4: "....-",
+  5: ".....", 6: "-....", 7: "--...", 8: "---..", 9: "----.",
+  "!": "-.-.--", "?": "..--..", ",": "--..--", ".": ".-.-.-",
+  "=": "-...-", "/": "-..-."
+};
+
+let WORDS = [];
+let shuffledWords = [];
+let shuffleIndex = 0;
+let currentWord = "";
+let historyCount = 0;
+
+let wordStartTime = null;
+let responseTimes = [];
+
+let playCount = 0;
+let playCounts = [];
+
+let firstRound = true;
+
+let correctWords = [];
+let missedWords = [];
+
+let loadedFilename = "";
+
+// =========================
+// FOCUS
+// =========================
+
+function focusInput() {
+  const input = document.getElementById("answer");
+  input.focus();
+  input.select();
+}
+window.onload = focusInput;
+
+// =========================
+// LOAD WORD LIST
+// =========================
+
+function loadWordList() {
+  const file = document.getElementById("wordFile").files[0];
+  if (!file) return;
+
+  loadedFilename = file.name;
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    WORDS = e.target.result
+      .split(/\r?\n/)
+      .map(w => w.trim().toUpperCase())
+      .filter(w => w.length > 0);
+
+    reshuffleDeck();
+
+    document.getElementById("wordLoadSummary").textContent =
+      `Loaded ${WORDS.length} words from ${loadedFilename}.`;
+
+    focusInput();
+  };
+  reader.readAsText(file);
+}
+
+// =========================
+// SHUFFLE
+// =========================
+
+function shuffleArray(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function reshuffleDeck() {
+  shuffledWords = shuffleArray(WORDS);
+  shuffleIndex = 0;
+}
+
+// =========================
+// TIMING ENGINE
+// =========================
+
+function getTiming() {
+  const charWpm = parseInt(document.getElementById("charWpmSelect").value, 10);
+  const farnWpm = parseInt(document.getElementById("farnWpmSelect").value, 10);
+
+  const ditChar = 1.2 / charWpm;
+  const dahChar = 3 * ditChar;
+  const gapChar = ditChar;
+
+  const ditFarn = 1.2 / farnWpm;
+  const letterGap = 3 * ditFarn;
+  const wordGap = 7 * ditFarn;
+
+  return { dit: ditChar, dah: dahChar, gap: gapChar, letterGap, wordGap };
+}
+
+// =========================
+// EFFECTIVE WPM
+// =========================
+
+function computeEffectiveWpm() {
+  const t = getTiming();
+  const dit = t.dit;
+  const dah = t.dah;
+  const gap = t.gap;
+  const letterGap = t.letterGap;
+  const wordGap = t.wordGap;
+
+  function letterTime(pattern) {
+    let time = 0;
+    for (let i = 0; i < pattern.length; i++) {
+      time += (pattern[i] === "." ? dit : dah);
+      if (i < pattern.length - 1) time += gap;
+    }
+    return time;
+  }
+
+  const p = letterTime(".--.");
+  const a = letterTime(".-");
+  const r = letterTime(".-.");
+  const i = letterTime("..");
+  const s = letterTime("...");
+
+  const interChars = 4 * letterGap;
+  const totalTime = p + a + r + i + s + interChars + wordGap;
+
+  const effectiveWpm = 60 / totalTime;
+  document.getElementById("effectiveWpmLabel").textContent =
+    effectiveWpm.toFixed(1);
+}
+
+document.getElementById("charWpmSelect").addEventListener("change", computeEffectiveWpm);
+document.getElementById("farnWpmSelect").addEventListener("change", computeEffectiveWpm);
+computeEffectiveWpm();
+
+// =========================
+// AUDIO ENGINE
+// =========================
+
+let audioCtx = null;
+let osc = null;
+let gainNode = null;
+
+function ensureAudio() {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+
+  if (!gainNode) {
+    gainNode = audioCtx.createGain();
+    gainNode.gain.value = 0;
+    gainNode.connect(audioCtx.destination);
+  }
+
+  if (!osc) {
+    osc = audioCtx.createOscillator();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(stFreq, audioCtx.currentTime);
+    osc.connect(gainNode);
+    osc.start();
+  }
+
+  if (audioCtx.state === "suspended") {
+    audioCtx.resume();
+  }
+}
+
+let stFreq = 600;
+document.getElementById("toneSelect").addEventListener("change", () => {
+  stFreq = parseInt(document.getElementById("toneSelect").value, 10);
+  if (osc) {
+    osc.frequency.setTargetAtTime(stFreq, audioCtx.currentTime, 0.01);
+  }
+});
+
+function startTone() {
+  ensureAudio();
+  const t = audioCtx.currentTime;
+  gainNode.gain.cancelScheduledValues(t);
+  gainNode.gain.setTargetAtTime(1.0, t, 0.003);
+}
+
+function stopTone() {
+  if (!audioCtx || !gainNode) return;
+  const t = audioCtx.currentTime;
+  gainNode.gain.cancelScheduledValues(t);
+  gainNode.gain.setTargetAtTime(0, t, 0.003);
+}
+
+// =========================
+// PLAY MORSE
+// =========================
+
+function playMorse(morse) {
+  ensureAudio();
+
+  playCount++;
+
+  const { dit, dah, gap, letterGap } = getTiming();
+  let t = 0;
+
+  for (const symbol of morse) {
+    if (symbol === ".") {
+      setTimeout(startTone, t * 1000);
+      setTimeout(stopTone, (t + dit) * 1000);
+      t += dit + gap;
+    } else if (symbol === "-") {
+      setTimeout(startTone, t * 1000);
+      setTimeout(stopTone, (t + dah) * 1000);
+      t += dah + gap;
+    } else if (symbol === " ") {
+      t += letterGap;
+    }
+  }
+}
+
+// =========================
+// AVERAGE RESPONSE TIME
+// =========================
+
+function updateAverageResponseTime() {
+  if (responseTimes.length === 0) {
+    document.getElementById("avgResponseTime").textContent = "0.00s";
+    return;
+  }
+
+  const sum = responseTimes.reduce((a, b) => a + b, 0);
+  const avg = sum / responseTimes.length;
+
+  document.getElementById("avgResponseTime").textContent =
+    avg.toFixed(2) + "s";
+}
+
+// =========================
+// HISTORY
+// =========================
+
+function printHistory(sent, user) {
+  const history = document.getElementById("history");
+  historyCount++;
+
+  let received = "";
+  const maxLen = Math.max(sent.length, user.length);
+
+  for (let i = 0; i < maxLen; i++) {
+    const s = sent[i] || "";
+    const u = user[i] || "";
+
+    if (s === u && s !== "") {
+      received += s;
+    } else {
+      received += `<span class="wrong">${u || "_"}</span>`;
+    }
+  }
+
+  let timeText = "";
+
+  if (sent === user && wordStartTime !== null) {
+    const elapsedMs = performance.now() - wordStartTime;
+    const seconds = elapsedMs / 1000;
+
+    responseTimes.unshift(seconds);
+    if (responseTimes.length > 25) {
+      responseTimes.pop();
+    }
+
+    updateAverageResponseTime();
+
+    playCounts.unshift(playCount);
+    if (playCounts.length > 25) {
+      playCounts.pop();
+    }
+
+    const avgPlays =
+      playCounts.reduce((a, b) => a + b, 0) / playCounts.length;
+
+    document.getElementById("avgPlayCount").textContent =
+      avgPlays.toFixed(2);
+
+    timeText = `   Plays: ${playCount}   Total Time: ${seconds.toFixed(2)}s`;
+
+    correctWords.push({ sent, user, plays: playCount, time: seconds });
+
+  } else {
+    missedWords.push({ sent, user: received });
+  }
+
+  const line =
+    `<div>${historyCount}. Sent: ${sent}   Received: ${received}${timeText}</div>`;
+
+  history.innerHTML = line + "<br>" + history.innerHTML;
+
+  const entries = history.innerHTML.split("<br>").filter(x => x.trim() !== "");
+  if (entries.length > 25) {
+    history.innerHTML = entries.slice(0, 25).join("<br>") + "<br>";
+  }
+}
+
+// =========================
+// SUMMARY OVERLAY
+// =========================
+
+function showSummary() {
+  const total = WORDS.length;
+  const correct = correctWords.length;
+  const missed = missedWords.length;
+
+  const charWpm = document.getElementById("charWpmSelect").value;
+  const farnWpm = document.getElementById("farnWpmSelect").value;
+  const effWpm = document.getElementById("effectiveWpmLabel").textContent;
+
+  const avgResp = document.getElementById("avgResponseTime").textContent;
+  const avgPlays = document.getElementById("avgPlayCount").textContent;
+
+  let html = `
+    <h3>Word List: ${loadedFilename}</h3>
+
+    <p><strong>Speeds:</strong>
+      Character ${charWpm} WPM &nbsp; | &nbsp;
+      Farnsworth ${farnWpm} WPM &nbsp; | &nbsp;
+      Effective ${effWpm} WPM
+    </p>
+
+    <p><strong>Averages:</strong>
+      Response Time: ${avgResp} &nbsp; | &nbsp;
+      Plays: ${avgPlays}
+    </p>
+
+    <p><strong>Results:</strong>
+      Total: ${total} &nbsp; | &nbsp;
+      Correct: ${correct} &nbsp; | &nbsp;
+      Missed: ${missed}
+    </p>
+  `;
+
+  if (missed > 0) {
+    html += `<br><br>`;
+    html += `<h3>Missed Words</h3>`;
+    missedWords.forEach(m => {
+      html += `
+        <div style="margin-bottom:6px;">
+          <strong>Sent:</strong> ${m.sent} &nbsp; | &nbsp;
+          <strong>Received:</strong> ${m.user}
+        </div>
+      `;
+    });
+  }
+
+  document.getElementById("summaryContent").innerHTML = html;
+  document.getElementById("summaryOverlay").style.display = "flex";
+}
+
+function closeSummary() {
+  document.getElementById("summaryOverlay").style.display = "none";
+
+  document.getElementById("history").innerHTML = "";
+  historyCount = 0;
+  responseTimes = [];
+  playCounts = [];
+  correctWords = [];
+  missedWords = [];
+  firstRound = true;
+
+  shuffleIndex = 0;
+  reshuffleDeck();
+
+  document.getElementById("avgResponseTime").textContent = "0.00s";
+  document.getElementById("avgPlayCount").textContent = "0.00";
+}
+
+// =========================
+// GAME LOGIC
+// =========================
+
+function startRound() {
+  if (WORDS.length === 0) {
+    alert("No words loaded. Please select a .txt file first.");
+    return;
+  }
+
+  if (shuffleIndex >= shuffledWords.length) {
+    showSummary();
+    return;
+  }
+
+  currentWord = shuffledWords[shuffleIndex];
+  shuffleIndex++;
+
+  playCount = 0;
+
+  document.getElementById("answer").value = "";
+  focusInput();
+
+  if (firstRound) {
+    firstRound = false;
+    setTimeout(() => {
+      wordStartTime = performance.now();
+      playMorse(wordToMorse(currentWord));
+    }, 750);
+    return;
+  }
+
+  wordStartTime = performance.now();
+  playMorse(wordToMorse(currentWord));
+}
+
+function checkAnswer() {
+  const input = document.getElementById("answer");
+  const user = input.value.trim().toUpperCase();
+
+  if (user === "") {
+    playMorse(wordToMorse(currentWord));
+    return;
+  }
+
+  printHistory(currentWord, user);
+
+  input.value = "";
+
+  setTimeout(() => {
+    startRound();
+    focusInput();
+  }, 1000);
+}
+
+// =========================
+// WORD → MORSE
+// =========================
+
+function wordToMorse(word) {
+  return word.split("")
+             .map(ch => MORSE[ch])
+             .join(" ");
+}
+
+// =========================
+// ENTER KEY HANDLER
+// =========================
+
+document.getElementById("answer").addEventListener("keydown", function(e) {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    ensureAudio();
+    checkAnswer();
+  }
+});
+</script>
+
+</body>
+</html>
